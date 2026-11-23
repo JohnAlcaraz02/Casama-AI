@@ -556,4 +556,92 @@ void main() {
       },
     );
   });
+
+  group('Bills & Payments Feature Tests', () {
+    test('addBill stores a new bill and increments unread notifications if reminder enabled', () {
+      final repo = MockRepository();
+      final initialCount = repo.bills.length;
+      final initialUnread = repo.unreadNotificationCount;
+
+      repo.addBill(
+        category: BillCategory.electricity,
+        billName: 'Test Electric Bill',
+        amount: 1500.0,
+        deadline: DateTime.now().add(const Duration(days: 4)),
+        reminderEnabled: true,
+        reminderTiming: ReminderTiming.oneDayBefore,
+      );
+
+      expect(repo.bills.length, initialCount + 1);
+      final newBill = repo.bills.first;
+      expect(newBill.billName, 'Test Electric Bill');
+      expect(newBill.effectiveBillName, 'Test Electric Bill');
+      expect(newBill.effectiveCategoryLabel, 'Electricity');
+      expect(newBill.amount, 1500.0);
+      expect(newBill.status, BillStatus.unpaid);
+      expect(repo.unreadNotificationCount, initialUnread + 1);
+    });
+
+    test('markBillPaid awards +5 points and updates bill status', () {
+      final repo = MockRepository();
+      final initialPoints = repo.kasamaPoints;
+
+      // Find an unpaid bill
+      final unpaidBill = repo.bills.firstWhere(
+        (b) => b.status == BillStatus.unpaid,
+      );
+      repo.markBillPaid(unpaidBill.id);
+
+      expect(repo.kasamaPoints, initialPoints + 5);
+      final paidBill = repo.bills.firstWhere((b) => b.id == unpaidBill.id);
+      expect(paidBill.status, BillStatus.paid);
+      expect(paidBill.paidByName, repo.currentUser.displayName);
+      expect(paidBill.paidAt, isNotNull);
+
+      // Duplicate payment does not award double points
+      repo.markBillPaid(unpaidBill.id);
+      expect(repo.kasamaPoints, initialPoints + 5);
+    });
+
+    test('reopenBill reverts paid status to unpaid', () {
+      final repo = MockRepository();
+      final paidBill = repo.bills.firstWhere(
+        (b) => b.status == BillStatus.paid,
+      );
+      repo.reopenBill(paidBill.id);
+
+      final reopened = repo.bills.firstWhere((b) => b.id == paidBill.id);
+      expect(reopened.status, BillStatus.unpaid);
+    });
+
+    test('deleteBill removes the bill when requested by creator', () {
+      final repo = MockRepository();
+      final createdBill = repo.bills.firstWhere(
+        (b) => b.creatorId == repo.currentUser.id,
+      );
+      final countBefore = repo.bills.length;
+
+      repo.deleteBill(createdBill.id);
+      expect(repo.bills.length, countBefore - 1);
+      expect(repo.bills.any((b) => b.id == createdBill.id), isFalse);
+    });
+
+    test(
+      'overdue bills are auto-detected when deadline has passed and unpaid',
+      () {
+        final bill = HouseholdBill(
+          id: 'overdue_test',
+          householdId: 'h1',
+          creatorId: 'c1',
+          creatorName: 'JP',
+          category: BillCategory.internet,
+          deadline: DateTime.now().subtract(const Duration(days: 2)),
+          status: BillStatus.unpaid,
+          createdAt: DateTime.now().subtract(const Duration(days: 5)),
+        );
+
+        expect(bill.effectiveStatus, BillStatus.overdue);
+      },
+    );
+  });
 }

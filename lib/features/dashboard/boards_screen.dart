@@ -55,10 +55,23 @@ class BoardsScreen extends StatelessWidget {
             icon: Icons.casino_outlined,
             iconColor: const Color(0xFFE91E63),
             bgColor: context.isDark
-                ? const Color(0xFF381E28)
-                : const Color(0xFFFCE4EC),
+                ? CasamaColors.darkTileChoreRoulette
+                : CasamaColors.tileChoreRoulette,
             onTap: () => context.push('/roulette'),
           ),
+          const SizedBox(height: 16),
+          _BoardHubCard(
+            title: 'Bills & Payments',
+            subtitle:
+                'Track household bills, set reminders, and never miss a deadline',
+            icon: Icons.receipt_long_outlined,
+            iconColor: CasamaColors.tileBillsIcon,
+            bgColor: context.isDark
+                ? CasamaColors.darkTileBills
+                : CasamaColors.tileBills,
+            onTap: () => context.push('/bills'),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

@@ -13,12 +13,15 @@ import 'package:casama/features/onboarding/interactive_tutorial_screen.dart';
 import 'package:casama/features/settings/app_settings_screen.dart';
 import 'package:casama/features/profile/profile_screen.dart';
 import 'package:casama/features/profile/edit_profile_dialog.dart';
+import 'package:casama/features/bills/add_bill_screen.dart';
 import 'package:casama/features/dashboard/dashboard_screen.dart';
+import 'package:casama/features/dashboard/boards_screen.dart';
 import 'package:casama/features/dashboard/main_navigation_shell.dart';
 import 'package:casama/features/calendar/household_calendar_view.dart';
 import 'package:casama/features/parcels/parcels_screen.dart';
 import 'package:casama/features/items/lost_found_screen.dart';
 import 'package:casama/features/tasks/maintenance_screen.dart';
+import 'package:casama/features/chore_roulette/chore_roulette_screen.dart';
 import 'package:casama/features/chat/create_meetup_screen.dart';
 import 'package:casama/features/chat/chat_directory_screen.dart';
 import 'package:casama/features/chat/group_chat_screen.dart';
@@ -246,18 +249,13 @@ void main() {
       expect(find.text('Casa 204'), findsOneWidget);
       expect(find.textContaining('4 members • Active now:'), findsOneWidget);
 
-      // 3. Calendar Feature
+      // 3. Calendar Feature & Schedule
       expect(find.byType(HouseholdCalendarView), findsOneWidget);
+      expect(find.text("Today's Schedule"), findsOneWidget);
 
-      // 4. Quick Access Section
-      expect(find.text('Quick Access'), findsOneWidget);
-      expect(find.text('Parcels'), findsWidgets);
-      expect(find.text('Maintenance'), findsOneWidget);
-      expect(find.text('Lost & Found'), findsOneWidget);
-      expect(find.text('Chat'), findsOneWidget);
-
-      // 5. Today's Activity Section
-      expect(find.text("Today's Activity"), findsOneWidget);
+      // Verify redundant sections are removed from Home
+      expect(find.text('Quick Access'), findsNothing);
+      expect(find.text("Today's Activity"), findsNothing);
     },
   );
 
@@ -1332,4 +1330,105 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Log Out of Casama?'), findsNothing);
   });
+
+  testWidgets(
+    'ChoreRouletteScreen switches between Random Dormmate and Just For Me modes and spins',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final mockRepo = MockRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [repositoryProvider.overrideWith((ref) => mockRepo)],
+          child: const MaterialApp(home: ChoreRouletteScreen()),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify title and mode toggle options
+      expect(find.text('Chore Roulette'), findsOneWidget);
+      expect(find.text('Random Dormmate'), findsOneWidget);
+      expect(find.text('Just For Me'), findsOneWidget);
+      expect(
+        find.text("Let's settle who does what fairly! 👥"),
+        findsOneWidget,
+      );
+      expect(
+        find.text("Good luck, Kasama! Let's see who's up! 🎉"),
+        findsOneWidget,
+      );
+
+      // Switch to "Just For Me" mode
+      await tester.tap(find.text('Just For Me'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("Can't decide what to do? Spin for yourself! 👤"),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Ready to get things done? Spin away! 🚀'),
+        findsOneWidget,
+      );
+
+      // Tap Spin button
+      expect(find.text('Spin'), findsOneWidget);
+      await tester.tap(find.text('Spin'));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Re-switch to "Random Dormmate"
+      await tester.tap(find.text('Random Dormmate'));
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'BoardsScreen displays Bills & Payments card and navigates to BillsDashboard',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: BoardsScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Parcels & Deliveries'), findsOneWidget);
+      expect(find.text('Lost & Found Items'), findsOneWidget);
+      expect(find.text('Maintenance & Restock'), findsOneWidget);
+      expect(find.text('Chore Roulette'), findsOneWidget);
+      expect(find.text('Bills & Payments'), findsOneWidget);
+      expect(
+        find.text(
+          'Track household bills, set reminders, and never miss a deadline',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'AddBillScreen renders illustration, form fields, and responsible member dropdown without assertion errors',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: AddBillScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add a New Bill'), findsOneWidget);
+      expect(find.text('Bill Type'), findsOneWidget);
+      expect(find.text('Electricity'), findsOneWidget);
+      expect(find.text('Water'), findsOneWidget);
+      expect(find.text('Responsible Member'), findsOneWidget);
+      expect(find.text('Save Bill'), findsOneWidget);
+
+      // Verify dropdown rendered valid initial responsible member without crash
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+    },
+  );
 }

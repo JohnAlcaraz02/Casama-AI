@@ -56,6 +56,13 @@ class CasamaColors {
   static const Color darkTileMaintenance = Color(0xFF1A2B3D);
   static const Color darkTileLostFound = Color(0xFF19322F);
   static const Color darkTileChat = Color(0xFF20263D);
+
+  // Bills & Payments
+  static const Color tileBills = Color(0xFFFFF3E0);
+  static const Color tileBillsIcon = Color(0xFFF57C00);
+  static const Color darkTileBills = Color(0xFF332B1A);
+  static const Color tileChoreRoulette = Color(0xFFFCE4EC);
+  static const Color darkTileChoreRoulette = Color(0xFF381E28);
 }
 
 /// Convenience BuildContext extension for dynamic light/dark theming

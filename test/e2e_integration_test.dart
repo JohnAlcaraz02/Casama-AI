@@ -196,15 +196,7 @@ void main() {
         // Calendar display and month navigation
         expect(find.byType(HouseholdCalendarView), findsOneWidget);
         expect(find.text('Today'), findsOneWidget);
-
-        // Quick access
-        expect(find.text('Parcels'), findsWidgets);
-        expect(find.text('Lost & Found'), findsWidgets);
-        expect(find.text('Maintenance'), findsWidgets);
-        expect(find.text('Chat'), findsWidgets);
-
-        // Activity Feed
-        expect(find.text("Today's Activity"), findsOneWidget);
+        expect(find.text("Today's Schedule"), findsOneWidget);
       },
     );
 

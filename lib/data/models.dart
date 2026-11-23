@@ -395,6 +395,250 @@ class PointAuditEntry {
   });
 }
 
+// ==========================================
+// BILLS & PAYMENTS MODELS
+// ==========================================
+
+enum BillCategory {
+  electricity,
+  water,
+  internet,
+  appliance,
+  rent,
+  associationDues,
+  gas,
+  maintenanceFee,
+  other,
+}
+
+extension BillCategoryX on BillCategory {
+  String get label {
+    switch (this) {
+      case BillCategory.electricity:
+        return 'Electricity';
+      case BillCategory.water:
+        return 'Water';
+      case BillCategory.internet:
+        return 'Internet';
+      case BillCategory.appliance:
+        return 'Appliance';
+      case BillCategory.rent:
+        return 'Rent';
+      case BillCategory.associationDues:
+        return 'Association Dues';
+      case BillCategory.gas:
+        return 'Gas';
+      case BillCategory.maintenanceFee:
+        return 'Maintenance Fee';
+      case BillCategory.other:
+        return 'Other';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case BillCategory.electricity:
+        return '⚡';
+      case BillCategory.water:
+        return '💧';
+      case BillCategory.internet:
+        return '🌐';
+      case BillCategory.appliance:
+        return '🖥';
+      case BillCategory.rent:
+        return '🏠';
+      case BillCategory.associationDues:
+        return '🏢';
+      case BillCategory.gas:
+        return '🔥';
+      case BillCategory.maintenanceFee:
+        return '🔧';
+      case BillCategory.other:
+        return '📋';
+    }
+  }
+}
+
+enum BillStatus { unpaid, paid, overdue }
+
+extension BillStatusX on BillStatus {
+  String get label {
+    switch (this) {
+      case BillStatus.unpaid:
+        return 'Unpaid';
+      case BillStatus.paid:
+        return 'Paid';
+      case BillStatus.overdue:
+        return 'Overdue';
+    }
+  }
+}
+
+enum ReminderTiming {
+  onDueDate,
+  oneDayBefore,
+  twoDaysBefore,
+  threeDaysBefore,
+  oneWeekBefore,
+}
+
+extension ReminderTimingX on ReminderTiming {
+  String get label {
+    switch (this) {
+      case ReminderTiming.onDueDate:
+        return 'On the due date';
+      case ReminderTiming.oneDayBefore:
+        return '1 day before';
+      case ReminderTiming.twoDaysBefore:
+        return '2 days before';
+      case ReminderTiming.threeDaysBefore:
+        return '3 days before';
+      case ReminderTiming.oneWeekBefore:
+        return '1 week before';
+    }
+  }
+
+  int get daysBeforeDue {
+    switch (this) {
+      case ReminderTiming.onDueDate:
+        return 0;
+      case ReminderTiming.oneDayBefore:
+        return 1;
+      case ReminderTiming.twoDaysBefore:
+        return 2;
+      case ReminderTiming.threeDaysBefore:
+        return 3;
+      case ReminderTiming.oneWeekBefore:
+        return 7;
+    }
+  }
+}
+
+enum BillRecipientType { onlyMe, allMembers, selectedMembers }
+
+extension BillRecipientTypeX on BillRecipientType {
+  String get label {
+    switch (this) {
+      case BillRecipientType.onlyMe:
+        return 'Only Me';
+      case BillRecipientType.allMembers:
+        return 'All Household Members';
+      case BillRecipientType.selectedMembers:
+        return 'Selected Members';
+    }
+  }
+}
+
+class HouseholdBill {
+  final String id;
+  final String householdId;
+  final String creatorId;
+  final String creatorName;
+  final BillCategory category;
+  final String? customCategoryLabel; // set when category == other
+  final String? billName;
+  final double? amount;
+  final DateTime deadline;
+  final String? notes;
+  final BillStatus status;
+  final bool reminderEnabled;
+  final ReminderTiming reminderTiming;
+  final BillRecipientType recipientType;
+  final List<String> selectedRecipientNames;
+  final String? responsibleMember; // who is responsible for paying
+  final DateTime createdAt;
+  final DateTime? paidAt;
+  final String? paidByName;
+
+  const HouseholdBill({
+    required this.id,
+    required this.householdId,
+    required this.creatorId,
+    required this.creatorName,
+    required this.category,
+    this.customCategoryLabel,
+    this.billName,
+    this.amount,
+    required this.deadline,
+    this.notes,
+    this.status = BillStatus.unpaid,
+    this.reminderEnabled = true,
+    this.reminderTiming = ReminderTiming.oneDayBefore,
+    this.recipientType = BillRecipientType.allMembers,
+    this.selectedRecipientNames = const [],
+    this.responsibleMember,
+    required this.createdAt,
+    this.paidAt,
+    this.paidByName,
+  });
+
+  String get effectiveCategoryLabel {
+    if (category == BillCategory.other &&
+        customCategoryLabel != null &&
+        customCategoryLabel!.trim().isNotEmpty) {
+      return customCategoryLabel!.trim();
+    }
+    return category.label;
+  }
+
+  String get effectiveBillName {
+    if (billName != null && billName!.trim().isNotEmpty) {
+      return billName!.trim();
+    }
+    return effectiveCategoryLabel;
+  }
+
+  /// Recompute status based on current time (overdue if past deadline and not paid)
+  BillStatus get effectiveStatus {
+    if (status == BillStatus.paid) return BillStatus.paid;
+    final now = DateTime.now();
+    final deadlineDate = DateTime(deadline.year, deadline.month, deadline.day);
+    final today = DateTime(now.year, now.month, now.day);
+    if (deadlineDate.isBefore(today)) return BillStatus.overdue;
+    return BillStatus.unpaid;
+  }
+
+  HouseholdBill copyWith({
+    String? billName,
+    double? amount,
+    DateTime? deadline,
+    String? notes,
+    BillStatus? status,
+    bool? reminderEnabled,
+    ReminderTiming? reminderTiming,
+    BillRecipientType? recipientType,
+    List<String>? selectedRecipientNames,
+    String? responsibleMember,
+    String? paidByName,
+    DateTime? paidAt,
+    String? customCategoryLabel,
+    BillCategory? category,
+  }) {
+    return HouseholdBill(
+      id: id,
+      householdId: householdId,
+      creatorId: creatorId,
+      creatorName: creatorName,
+      category: category ?? this.category,
+      customCategoryLabel: customCategoryLabel ?? this.customCategoryLabel,
+      billName: billName ?? this.billName,
+      amount: amount ?? this.amount,
+      deadline: deadline ?? this.deadline,
+      notes: notes ?? this.notes,
+      status: status ?? this.status,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderTiming: reminderTiming ?? this.reminderTiming,
+      recipientType: recipientType ?? this.recipientType,
+      selectedRecipientNames:
+          selectedRecipientNames ?? this.selectedRecipientNames,
+      responsibleMember: responsibleMember ?? this.responsibleMember,
+      createdAt: createdAt,
+      paidAt: paidAt ?? this.paidAt,
+      paidByName: paidByName ?? this.paidByName,
+    );
+  }
+}
+
 class NotificationPreferences {
   final bool householdUpdates;
   final bool parcelNotifications;

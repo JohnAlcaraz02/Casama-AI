@@ -325,6 +325,73 @@ class MockRepository extends ChangeNotifier {
     ),
   ];
 
+  // Bills & Payments
+  final List<HouseholdBill> _bills = [
+    HouseholdBill(
+      id: 'bill_1',
+      householdId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      creatorId: '11111111-1111-1111-1111-111111111111',
+      creatorName: 'Jon Paul',
+      category: BillCategory.electricity,
+      billName: 'Meralco Bill',
+      amount: 2500.00,
+      deadline: DateTime.now().add(const Duration(days: 5)),
+      reminderEnabled: true,
+      reminderTiming: ReminderTiming.oneDayBefore,
+      recipientType: BillRecipientType.allMembers,
+      responsibleMember: 'Jon Paul',
+      createdAt: DateTime.now().subtract(const Duration(days: 2)),
+    ),
+    HouseholdBill(
+      id: 'bill_2',
+      householdId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      creatorId: '22222222-2222-2222-2222-222222222222',
+      creatorName: 'Maria',
+      category: BillCategory.water,
+      billName: 'MWSS Water Bill',
+      amount: 850.00,
+      deadline: DateTime.now().add(const Duration(days: 12)),
+      reminderEnabled: true,
+      reminderTiming: ReminderTiming.threeDaysBefore,
+      recipientType: BillRecipientType.allMembers,
+      responsibleMember: 'Maria',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    ),
+    HouseholdBill(
+      id: 'bill_3',
+      householdId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      creatorId: '11111111-1111-1111-1111-111111111111',
+      creatorName: 'Jon Paul',
+      category: BillCategory.internet,
+      billName: 'PLDT Wi-Fi',
+      amount: 1299.00,
+      deadline: DateTime.now().subtract(const Duration(days: 3)),
+      reminderEnabled: false,
+      reminderTiming: ReminderTiming.oneDayBefore,
+      recipientType: BillRecipientType.allMembers,
+      responsibleMember: 'Alex',
+      createdAt: DateTime.now().subtract(const Duration(days: 10)),
+    ),
+    HouseholdBill(
+      id: 'bill_4',
+      householdId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      creatorId: '33333333-3333-3333-3333-333333333333',
+      creatorName: 'Alex',
+      category: BillCategory.rent,
+      billName: 'Monthly Rent',
+      amount: 15000.00,
+      deadline: DateTime.now().add(const Duration(days: 20)),
+      reminderEnabled: true,
+      reminderTiming: ReminderTiming.oneWeekBefore,
+      recipientType: BillRecipientType.allMembers,
+      responsibleMember: 'Jon Paul',
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
+      status: BillStatus.paid,
+      paidAt: DateTime.now().subtract(const Duration(days: 1)),
+      paidByName: 'Jon Paul',
+    ),
+  ];
+
   // Household invitations
   final List<HouseholdInvitation> _invitations = [
     HouseholdInvitation(
@@ -388,6 +455,23 @@ class MockRepository extends ChangeNotifier {
   List<LostFoundItem> get items => List.unmodifiable(_items);
   List<MaintenanceTask> get tasks => List.unmodifiable(_tasks);
   MeetUpInvitation get activeMeetUp => _activeMeetUp;
+
+  /// Bills getter — auto-detects overdue on read
+  List<HouseholdBill> get bills {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return List.unmodifiable(
+      _bills.map((b) {
+        if (b.status == BillStatus.paid) return b;
+        final dl = DateTime(b.deadline.year, b.deadline.month, b.deadline.day);
+        if (dl.isBefore(today)) {
+          return b.copyWith(status: BillStatus.overdue);
+        }
+        return b;
+      }).toList(),
+    );
+  }
+
   List<ChatMessage> get groupMessages => List.unmodifiable(_groupMessages);
   List<ChatMessage> getDirectMessages(String contactKey) =>
       List.unmodifiable(_directMessages[contactKey.toLowerCase()] ?? []);
@@ -1197,6 +1281,145 @@ class MockRepository extends ChangeNotifier {
 
   void resetMembersForNewUserTest() {
     _members.retainWhere((m) => m.profile.id == _currentUser.id);
+    notifyListeners();
+  }
+
+  // ==========================================
+  // BILLS & PAYMENTS
+  // ==========================================
+
+  void addBill({
+    required BillCategory category,
+    String? customCategoryLabel,
+    String? billName,
+    double? amount,
+    required DateTime deadline,
+    String? notes,
+    bool reminderEnabled = true,
+    ReminderTiming reminderTiming = ReminderTiming.oneDayBefore,
+    BillRecipientType recipientType = BillRecipientType.allMembers,
+    List<String> selectedRecipientNames = const [],
+    String? responsibleMember,
+  }) {
+    _bills.insert(
+      0,
+      HouseholdBill(
+        id: 'bill_${DateTime.now().millisecondsSinceEpoch}',
+        householdId: _currentHousehold.id,
+        creatorId: _currentUser.id,
+        creatorName: _currentUser.displayName,
+        category: category,
+        customCategoryLabel: customCategoryLabel,
+        billName: billName,
+        amount: amount,
+        deadline: deadline,
+        notes: notes,
+        reminderEnabled: reminderEnabled,
+        reminderTiming: reminderTiming,
+        recipientType: recipientType,
+        selectedRecipientNames: selectedRecipientNames,
+        responsibleMember: responsibleMember ?? _currentUser.displayName,
+        createdAt: DateTime.now(),
+      ),
+    );
+    // Trigger in-app reminder notification for newly added bill
+    if (reminderEnabled) {
+      _notificationsUnreadCount++;
+    }
+    notifyListeners();
+  }
+
+  void updateBill({
+    required String billId,
+    BillCategory? category,
+    String? customCategoryLabel,
+    String? billName,
+    double? amount,
+    DateTime? deadline,
+    String? notes,
+    bool? reminderEnabled,
+    ReminderTiming? reminderTiming,
+    BillRecipientType? recipientType,
+    List<String>? selectedRecipientNames,
+    String? responsibleMember,
+  }) {
+    final idx = _bills.indexWhere((b) => b.id == billId);
+    if (idx == -1) return;
+    // Only creator can edit
+    if (_bills[idx].creatorId != _currentUser.id) return;
+    _bills[idx] = _bills[idx].copyWith(
+      category: category,
+      customCategoryLabel: customCategoryLabel,
+      billName: billName,
+      amount: amount,
+      deadline: deadline,
+      notes: notes,
+      reminderEnabled: reminderEnabled,
+      reminderTiming: reminderTiming,
+      recipientType: recipientType,
+      selectedRecipientNames: selectedRecipientNames,
+      responsibleMember: responsibleMember,
+    );
+    notifyListeners();
+  }
+
+  /// Any household member can mark a bill as paid. Awards +5 Kasama Points.
+  void markBillPaid(String billId) {
+    final idx = _bills.indexWhere((b) => b.id == billId);
+    if (idx == -1) return;
+    final bill = _bills[idx];
+    if (bill.status == BillStatus.paid) return; // prevent duplicate rewards
+    _bills[idx] = bill.copyWith(
+      status: BillStatus.paid,
+      paidAt: DateTime.now(),
+      paidByName: _currentUser.displayName,
+    );
+    _kasamaPoints += 5;
+    _pointHistory.insert(
+      0,
+      PointAuditEntry(
+        id: 'pa_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Paid bill: ${bill.effectiveBillName}',
+        points: 5,
+        timestamp: DateTime.now(),
+        category: 'bill',
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Reopen a mistakenly paid bill (reverts to unpaid). Creator only.
+  void reopenBill(String billId) {
+    final idx = _bills.indexWhere((b) => b.id == billId);
+    if (idx == -1) return;
+    _bills[idx] = HouseholdBill(
+      id: _bills[idx].id,
+      householdId: _bills[idx].householdId,
+      creatorId: _bills[idx].creatorId,
+      creatorName: _bills[idx].creatorName,
+      category: _bills[idx].category,
+      customCategoryLabel: _bills[idx].customCategoryLabel,
+      billName: _bills[idx].billName,
+      amount: _bills[idx].amount,
+      deadline: _bills[idx].deadline,
+      notes: _bills[idx].notes,
+      status: BillStatus.unpaid,
+      reminderEnabled: _bills[idx].reminderEnabled,
+      reminderTiming: _bills[idx].reminderTiming,
+      recipientType: _bills[idx].recipientType,
+      selectedRecipientNames: _bills[idx].selectedRecipientNames,
+      responsibleMember: _bills[idx].responsibleMember,
+      createdAt: _bills[idx].createdAt,
+    );
+    notifyListeners();
+  }
+
+  /// Delete a bill. Only creator can delete.
+  void deleteBill(String billId) {
+    final idx = _bills.indexWhere((b) => b.id == billId);
+    if (idx == -1) return;
+    if (_bills[idx].creatorId != _currentUser.id) return;
+    _bills.removeAt(idx);
     notifyListeners();
   }
 }

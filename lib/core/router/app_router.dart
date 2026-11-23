@@ -5,6 +5,9 @@ import '../../features/auth/login_screen.dart';
 import '../../features/auth/optional_profile_screen.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/auth/splash_screen.dart';
+import '../../features/bills/add_bill_screen.dart';
+import '../../features/bills/bill_detail_screen.dart';
+import '../../features/bills/bills_dashboard_screen.dart';
 import '../../features/chat/chat_space_screen.dart';
 import '../../features/chat/create_meetup_screen.dart';
 import '../../features/chat/direct_chat_screen.dart';
@@ -99,6 +102,21 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final openAdd = state.uri.queryParameters['openAdd'] == 'true';
         return MaintenanceScreen(initialOpenAddModal: openAdd);
+      },
+    ),
+    GoRoute(
+      path: '/bills',
+      builder: (context, state) => const BillsDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/add-bill',
+      builder: (context, state) => const AddBillScreen(),
+    ),
+    GoRoute(
+      path: '/bill-detail',
+      builder: (context, state) {
+        final billId = state.uri.queryParameters['id'] ?? '';
+        return BillDetailScreen(billId: billId);
       },
     ),
     GoRoute(

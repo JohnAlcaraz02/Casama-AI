@@ -11,6 +11,8 @@ import '../../data/repository_provider.dart';
 import '../../shared/widgets/cas_mascot_view.dart';
 import '../../shared/widgets/casama_button.dart';
 
+enum RouletteMode { randomHousemate, justForMe }
+
 class ChoreRouletteScreen extends ConsumerStatefulWidget {
   const ChoreRouletteScreen({super.key});
 
@@ -25,6 +27,7 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
   late Animation<double> _animation;
   double _currentAngle = 0;
   bool _isSpinning = false;
+  RouletteMode _rouletteMode = RouletteMode.randomHousemate;
 
   final List<_ChoreItem> _chores = [
     _ChoreItem('Take Out Trash', Icons.delete_outline, const Color(0xFF80CBC4)),
@@ -112,9 +115,18 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
 
   void _showResultDialog(_ChoreItem chore) {
     final repo = ref.read(repositoryProvider);
-    final roommates = repo.members;
-    final assignedRoommate =
-        roommates[Random().nextInt(roommates.length)].profile.displayName;
+    final isSolo = _rouletteMode == RouletteMode.justForMe;
+
+    final String assignedPerson;
+    if (isSolo) {
+      assignedPerson = repo.currentUser.displayName.isNotEmpty
+          ? repo.currentUser.displayName
+          : 'You';
+    } else {
+      final roommates = repo.members;
+      assignedPerson =
+          roommates[Random().nextInt(roommates.length)].profile.displayName;
+    }
 
     showDialog(
       context: context,
@@ -132,7 +144,9 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'The Wheel Has Spoken! 🎯',
+                isSolo
+                    ? 'Your Personal Challenge! 🎯'
+                    : 'The Wheel Has Spoken! 🎯',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -141,19 +155,48 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Chore: ${chore.title}\nAssigned to: $assignedRoommate',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: CasamaColors.primaryCoral,
-                  height: 1.4,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
                 ),
-                textAlign: TextAlign.center,
+                decoration: BoxDecoration(
+                  color: context.isDark
+                      ? CasamaColors.darkSurface
+                      : const Color(0xFFFFECE8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      chore.title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: CasamaColors.primaryCoral,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isSolo
+                          ? 'Assigned to: You (Solo Mode)'
+                          : 'Assigned to: $assignedPerson',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.textColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               Text(
-                'Fair, friendly, and decided by Casama!',
+                isSolo
+                    ? 'Tackle this chore to keep your dorm clean and earn Kasama points!'
+                    : 'Fair, friendly, and decided by Casama!',
                 style: TextStyle(
                   fontSize: 12,
                   color: context.textSecondaryColor,
@@ -162,20 +205,23 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
               ),
               const SizedBox(height: 18),
               CasamaButton(
-                label: 'Add to Maintenance Tasks',
+                label: isSolo ? 'Add to My Tasks' : 'Add to Maintenance Tasks',
                 onPressed: () {
                   repo.addTask(
                     title: chore.title,
                     category: TaskCategory.diy,
                     urgency: TaskUrgency.medium,
-                    assigneeName: assignedRoommate,
+                    assigneeName: assignedPerson,
                   );
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Added "${chore.title}" assigned to $assignedRoommate',
+                        isSolo
+                            ? 'Added "${chore.title}" to your tasks!'
+                            : 'Added "${chore.title}" assigned to $assignedPerson',
                       ),
+                      backgroundColor: CasamaColors.midnightNavy,
                     ),
                   );
                 },
@@ -212,11 +258,115 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: CasamaSpacing.sm),
+            const SizedBox(height: CasamaSpacing.xs),
+
+            // Mode Selector Toggle
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: context.borderColor),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isSpinning
+                          ? null
+                          : () => setState(
+                              () =>
+                                  _rouletteMode = RouletteMode.randomHousemate,
+                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _rouletteMode == RouletteMode.randomHousemate
+                              ? CasamaColors.midnightNavy
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.groups_rounded,
+                              size: 16,
+                              color:
+                                  _rouletteMode == RouletteMode.randomHousemate
+                                  ? Colors.white
+                                  : context.textSecondaryColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Random Dormmate',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    _rouletteMode ==
+                                        RouletteMode.randomHousemate
+                                    ? Colors.white
+                                    : context.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isSpinning
+                          ? null
+                          : () => setState(
+                              () => _rouletteMode = RouletteMode.justForMe,
+                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _rouletteMode == RouletteMode.justForMe
+                              ? CasamaColors.primaryCoral
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_rounded,
+                              size: 16,
+                              color: _rouletteMode == RouletteMode.justForMe
+                                  ? Colors.white
+                                  : context.textSecondaryColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Just For Me',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _rouletteMode == RouletteMode.justForMe
+                                    ? Colors.white
+                                    : context.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             Text(
-              "Let's settle this fairly!",
+              _rouletteMode == RouletteMode.randomHousemate
+                  ? "Let's settle who does what fairly! 👥"
+                  : "Can't decide what to do? Spin for yourself! 👤",
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 color: context.textSecondaryColor,
                 fontWeight: FontWeight.w500,
               ),
@@ -319,9 +469,11 @@ class _ChoreRouletteScreenState extends ConsumerState<ChoreRouletteScreen>
                 color: const Color(0xFFFFECE8),
                 borderRadius: CasamaSpacing.roundedPill,
               ),
-              child: const Text(
-                'Good luck, Kasama! 🎉',
-                style: TextStyle(
+              child: Text(
+                _rouletteMode == RouletteMode.justForMe
+                    ? 'Ready to get things done? Spin away! 🚀'
+                    : 'Good luck, Kasama! Let\'s see who\'s up! 🎉',
+                style: const TextStyle(
                   color: CasamaColors.primaryCoral,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
